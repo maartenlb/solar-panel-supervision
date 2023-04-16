@@ -2,20 +2,24 @@ import torch
 import torchvision
 import torch.optim as optim
 import torch.nn as nn
+import random
+import numpy as np
 from tqdm import tqdm
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from dataset import SolarObject, collate_fn  # import your custom dataset
 
-num_epochs = 10
+num_epochs = 3
 seed = 42
-batch_size = 5
+batch_size = 8
 lr = 0.0001
 
 # Seed everything
 torch.manual_seed(seed)
-# np.random.seed(seed)
+np.random.seed(seed)
+random.seed(seed)
+
 
 # Define the device to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,16 +61,17 @@ test_loader = DataLoader(
     sampler=dataset.test_sampler(),
 )
 # Define the Faster R-CNN model with a ResNet-50 backbone
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False)
-num_classes = 2  # number of object classes
-in_features = model.roi_heads.box_predictor.cls_score.in_features
-model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
+# num_classes = 3  # number of object classes
+# in_features = model.roi_heads.box_predictor.cls_score.in_features
+# model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
 # Set the model to the device
 model.to(device)
 
 # Define the loss function and optimizer
-cls_criterion = nn.CrossEntropyLoss()
+weight = torch.tensor([1.0, 10.0])
+cls_criterion = nn.CrossEntropyLoss(weight=weight.to(device))
 bbox_criterion = nn.SmoothL1Loss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -82,8 +87,8 @@ for epoch in range(num_epochs):
         targets = []
         for i in range(len(images)):
             d = {}
-            d["boxes"] = annotations["boxes"][i]
-            d["labels"] = annotations["labels"][i]
+            d["boxes"] = annotations["boxes"][i].to(device)
+            d["labels"] = annotations["labels"][i].to(device)
             targets.append(d)
 
         # targets = [{k: v.to(device) for k, v in t.items()} for t in targets]

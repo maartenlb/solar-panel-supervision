@@ -41,17 +41,27 @@ class SolarObject(Dataset):
 
         boxes = []
         labels = []
+        polygons = []
+        solar_panel = [0]
         boxes.append([0, 0, 199, 199])
         labels.append(0)
-        solar_panel = False
         for box in self.data[image_name]["bounding_boxes"]:
             boxes.append(box)
             labels.append(1)  # Only one object class present
-            solar_panel = True
+            solar_panel = [1]
+        for polygon in self.data[image_name]["polygons"]:
+            polygons.append(polygon)
 
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
         labels = torch.as_tensor(labels, dtype=torch.int64)
-        target = {"boxes": boxes, "labels": labels, "solar_panel": solar_panel}
+        solar_panel = torch.as_tensor(solar_panel, dtype=torch.int64)
+        # polygons = torch.as_tensor(polygons, dtype=torch.float32)
+        target = {
+            "boxes": boxes,
+            "labels": labels,
+            "solar_panel": solar_panel,
+            # "polygons": polygons,
+        }
 
         if self.transform:
             image = self.transform(image)
@@ -73,19 +83,29 @@ def collate_fn(batch):
     images = []
     boxes = []
     labels = []
+    panels = []
+    # polygons = []
+
     for image, target in batch:
         # Get the bounding boxes and labels for this image
         image_boxes = target["boxes"]
         image_labels = target["labels"]
+        image_panels = target["solar_panel"]
+        # image_polygons = target["polygons"]
 
         # Append the boxes and labels to the lists
         boxes.append(image_boxes)
         labels.append(image_labels)
+
+        panels.append(image_panels)
+        # polygons.append(image_polygons)
         images.append(image)
 
     # Create padded tensors for the boxes and labels
     padded_boxes = torch.nn.utils.rnn.pad_sequence(boxes, batch_first=True)
     padded_labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True)
+    # padded_panels = torch.nn.utils.rnn.pad_sequence(panels, batch_first=True)
+    # padded_polygons = torch.nn.utils.rnn.pad_sequence(polygons, batch_first=True)
 
     # Remove boxes with zero height or width
     valid_boxes = []
@@ -94,7 +114,12 @@ def collate_fn(batch):
         valid_boxes.append(boxes[valid_mask])
 
     # Create a dictionary to hold the targets
-    targets = {"boxes": valid_boxes, "labels": padded_labels}
+    targets = {
+        "boxes": valid_boxes,
+        "labels": padded_labels,
+        "solar_panel": panels,
+        # "polygons": polygons,
+    }
 
     # Stack resized images into a batch tensor
     images = torch.stack(images, dim=0)
