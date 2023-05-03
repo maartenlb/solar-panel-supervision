@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -16,17 +17,19 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import numpy as np
 import random
-from PIL import Image
+from PIL import Image, ImageDraw
 from torchvision.transforms import ToPILImage
 from pprint import pprint
 import matplotlib.pyplot as plt
+from metrics import calc_metrics
+from pprint import pprint
+import json
 
 
-def evaluate(model, dataloader, device):
+def evaluate(model, dataloader, threshold, device):
     # Initialize the lists to store predictions and ground truth labels
     preds = []
     labels = []
-    counter = 0
 
     # Iterate over the validation dataset
     with torch.no_grad():
@@ -40,7 +43,10 @@ def evaluate(model, dataloader, device):
             # Forward pass
             outputs = model(inputs).squeeze()
             probs = torch.sigmoid(outputs)
-            preds.extend(torch.round(probs).cpu().numpy().astype(int).tolist())
+            probs = threshold(probs)
+            probs = torch.round_(probs)
+
+            preds.extend(probs.cpu().numpy().astype(int).tolist())
             labels.extend(targets.cpu().numpy().astype(int).tolist())
 
     # Calculate accuracy and confusion matrix
@@ -62,8 +68,19 @@ def evaluate(model, dataloader, device):
     print(f"Accuracy by class:{cm.diagonal()}")
 
 
-def CAM_map(model, dataloader, cam, device):
+def CAM_map(model, dataloader, threshold, cam, cam_threshold, device, save_img=False):
     # pass the images through the model to get the output activations
+    avg_dict = {
+        "bbox_iou": 0,
+        "bbox_dice": 0,
+        "bbox_prec": 0,
+        "bbox_rec": 0,
+        "poly_iou": 0,
+        "poly_dice": 0,
+        "poly_prec": 0,
+        "poly_rec": 0,
+    }
+    count = 0
     for idx, batch in enumerate(tqdm(dataloader)):
         images, annotations = batch
         targets = []
@@ -71,56 +88,118 @@ def CAM_map(model, dataloader, cam, device):
             targets.append(annotations["solar_panel"][j])
         targets = torch.as_tensor(targets, dtype=torch.float32).to(device)
 
+        images = images.to(device)
+
         outputs = model(images)
 
         # get the predicted class for each image
-        preds = torch.round(torch.sigmoid(outputs)).squeeze()
+        preds = torch.sigmoid(outputs)
+        preds = threshold(preds)
+        preds = torch.round_(preds).squeeze()
 
         for i in range(len(images)):
             if preds[i] == 1:
                 # get the Grad-CAM activation map for the predicted class
                 cam_mask = cam(images[i].unsqueeze(0))
-                image = images[i].cpu().detach().numpy()
-                # apply the mask to the original image to get the Grad-CAM image
-                # gradcam_image = mask * images[i].cpu().detach().numpy()
-
                 # normalize the CAM mask
                 cam_mask = cam_mask - np.min(cam_mask)
                 cam_mask = cam_mask / np.max(cam_mask)
 
-                # resize the CAM mask to match the size of the original image
-                # cam_mask = cv2.resize(cam_mask, (image.shape[2], image.shape[1]))
-
-                # convert the CAM mask to PIL Image
-                cam_mask = np.squeeze(np.float32(cam_mask))
-                # convert the original image to PIL Image
-
-                image = np.float32(image.squeeze().transpose((1, 2, 0)))
-                image = image[:, :, :3]
-
-                # Create a colormap for the heatmap
-                heatmap_colormap = plt.cm.get_cmap("jet")
-
-                # Apply the colormap to the normalized heatmap mask
-                heatmap = heatmap_colormap(cam_mask)
-                heatmap = heatmap[:, :, :3]
-
-                # Blend the heatmap with the original image using alpha blending
-                alpha = 0.2
-                blended = (alpha * heatmap) + ((1 - alpha) * image)
-
-                # Plot the blended image
-                plt.imshow(blended)
-                plt.axis("off")
                 if targets[i] == 1:
-                    plt.savefig(
-                        f"output/cam/tp/solar_panel_{idx}_{i}.png", bbox_inches="tight"
+                    pred_mask = torch.from_numpy(cam_mask)
+                    pred_mask = torch.where(pred_mask >= cam_threshold, 1, 0).int()
+                    box_mask = torch.zeros((200, 200))
+                    bboxes = annotations["boxes"][i].int()
+                    for box in bboxes[1:]:
+                        x1, y1, x2, y2 = box
+                        box_mask[y1:y2, x1:x2] = 1
+
+                    # Create a new mask with the same shape as the image
+                    polygons = annotations["polygons"][i]
+                    poly_img = Image.new("L", (200, 200), 0)
+                    for poly in polygons:
+                        poly = [item for sublist in poly for item in sublist]
+
+                        ImageDraw.Draw(poly_img).polygon(poly, outline=1, fill=1)
+
+                    poly_mask = np.array(poly_img)
+                    poly_mask = torch.from_numpy(poly_mask).int()
+
+                    # localization metrics
+                    bbox_iou, bbox_dice, bbox_precision, bbox_recall = calc_metrics(
+                        pred_mask, box_mask
                     )
-                if targets[i] == 0:
-                    plt.savefig(
-                        f"output/cam/fp/solar_panel_{idx}_{i}.png", bbox_inches="tight"
+                    poly_iou, poly_dice, poly_precision, poly_recall = calc_metrics(
+                        pred_mask, poly_mask
                     )
-                plt.clf()
+
+                    avg_dict["bbox_iou"] = (count * avg_dict["bbox_iou"] + bbox_iou) / (
+                        count + 1
+                    )
+                    avg_dict["bbox_dice"] = (
+                        count * avg_dict["bbox_dice"] + bbox_dice
+                    ) / (count + 1)
+                    avg_dict["bbox_prec"] = (
+                        count * avg_dict["bbox_prec"] + bbox_precision
+                    ) / (count + 1)
+                    avg_dict["bbox_rec"] = (
+                        count * avg_dict["bbox_rec"] + bbox_recall
+                    ) / (count + 1)
+
+                    avg_dict["poly_iou"] = (count * avg_dict["poly_iou"] + poly_iou) / (
+                        count + 1
+                    )
+                    avg_dict["poly_dice"] = (
+                        count * avg_dict["poly_dice"] + poly_dice
+                    ) / (count + 1)
+                    avg_dict["poly_prec"] = (
+                        count * avg_dict["poly_prec"] + poly_precision
+                    ) / (count + 1)
+                    avg_dict["poly_rec"] = (
+                        count * avg_dict["poly_rec"] + poly_recall
+                    ) / (count + 1)
+
+                    count += 1
+
+                if save_img:
+                    image = images[i].cpu().detach().numpy()
+
+                    # resize the CAM mask to match the size of the original image
+                    # cam_mask = cv2.resize(cam_mask, (image.shape[2], image.shape[1]))
+
+                    # convert the CAM mask to PIL Image
+                    cam_mask = np.squeeze(np.float32(cam_mask))
+                    # convert the original image to PIL Image
+
+                    image = np.float32(image.squeeze().transpose((1, 2, 0)))
+                    image = image[:, :, :3]
+
+                    # Create a colormap for the heatmap
+                    heatmap_colormap = plt.cm.get_cmap("jet")
+
+                    # Apply the colormap to the normalized heatmap mask
+                    heatmap = heatmap_colormap(cam_mask)
+                    heatmap = heatmap[:, :, :3]
+
+                    # Blend the heatmap with the original image using alpha blending
+                    alpha = 0.2
+                    blended = (alpha * heatmap) + ((1 - alpha) * image)
+
+                    # Plot the blended image
+                    plt.imshow(blended)
+                    plt.axis("off")
+                    if targets[i] == 1:
+                        plt.savefig(
+                            f"output/cam/tp/solar_panel_{idx}_{i}.png",
+                            bbox_inches="tight",
+                        )
+                    if targets[i] == 0:
+                        plt.savefig(
+                            f"output/cam/fp/solar_panel_{idx}_{i}.png",
+                            bbox_inches="tight",
+                        )
+                    plt.clf()
+    return avg_dict
 
 
 # Load the saved model
@@ -158,7 +237,23 @@ model.eval()
 target_layer = model.layer4
 
 cam = GradCAM(model=model, target_layers=target_layer)
+threshold_num = 0.9
 
-CAM_map(model=model, dataloader=test_loader, cam=cam, device=device)
+print(f"Classification Threshold for this run is: {threshold_num}")
 
-evaluate(model=model, dataloader=test_loader, device=device)
+threshold = nn.Threshold(threshold_num, 0)
+cam_threshold = 0.5
+
+# evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
+
+avg_dict = CAM_map(
+    model=model,
+    dataloader=test_loader,
+    threshold=threshold,
+    cam_threshold=cam_threshold,
+    cam=cam,
+    device=device,
+)
+
+with open("output/classification_avg_dict.json", "w", encoding="utf-8") as f:
+    json.dump(avg_dict, f, ensure_ascii=False, indent=4)

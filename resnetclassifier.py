@@ -91,7 +91,7 @@ class WeightedBCELoss(nn.Module):
         return loss
 
 
-criterion = WeightedBCELoss(pos_weight=10)
+criterion = WeightedBCELoss(pos_weight=20)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 
 # Train the model

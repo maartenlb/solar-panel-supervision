@@ -61,16 +61,20 @@ test_loader = DataLoader(
     sampler=dataset.test_sampler(),
 )
 # Define the Faster R-CNN model with a ResNet-50 backbone
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights="DEFAULT")
-# num_classes = 3  # number of object classes
+num_classes = 2  # number of object classes
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
+    num_classes=num_classes, trainable_backbone_layers=5
+)
+
 # in_features = model.roi_heads.box_predictor.cls_score.in_features
 # model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
 # Set the model to the device
 model.to(device)
+model.train()
 
 # Define the loss function and optimizer
-weight = torch.tensor([1.0, 10.0])
+weight = torch.tensor([1.0, 20.0])
 cls_criterion = nn.CrossEntropyLoss(weight=weight.to(device))
 bbox_criterion = nn.SmoothL1Loss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -100,10 +104,10 @@ for epoch in range(num_epochs):
         loss = cls_loss + bbox_loss
 
         total_loss += loss.item()
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         counter += 1
+        optimizer.zero_grad()
 
     # Print the loss and accuracy for each epoch
     print(

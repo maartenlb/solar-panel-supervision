@@ -6,11 +6,11 @@ import numpy as np
 import torch.utils.data as torchdata
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from tqdm import tqdm
 
 
 class SolarObject(Dataset):
     def __init__(self, data_dir, json_path, transform=None, random_seed=42):
-
         np.random.seed(random_seed)
         torch.manual_seed(random_seed)
         self.data_dir = data_dir
@@ -60,7 +60,7 @@ class SolarObject(Dataset):
             "boxes": boxes,
             "labels": labels,
             "solar_panel": solar_panel,
-            # "polygons": polygons,
+            "polygons": polygons,
         }
 
         if self.transform:
@@ -84,21 +84,21 @@ def collate_fn(batch):
     boxes = []
     labels = []
     panels = []
-    # polygons = []
+    polygons = []
 
     for image, target in batch:
         # Get the bounding boxes and labels for this image
         image_boxes = target["boxes"]
         image_labels = target["labels"]
         image_panels = target["solar_panel"]
-        # image_polygons = target["polygons"]
+        image_polygons = target["polygons"]
 
         # Append the boxes and labels to the lists
         boxes.append(image_boxes)
         labels.append(image_labels)
 
         panels.append(image_panels)
-        # polygons.append(image_polygons)
+        polygons.append(image_polygons)
         images.append(image)
 
     # Create padded tensors for the boxes and labels
@@ -118,10 +118,29 @@ def collate_fn(batch):
         "boxes": valid_boxes,
         "labels": padded_labels,
         "solar_panel": panels,
-        # "polygons": polygons,
+        "polygons": polygons,
     }
 
     # Stack resized images into a batch tensor
     images = torch.stack(images, dim=0)
 
     return images, targets
+
+
+# Test code for dataset
+# # Define the device to be used
+# seed = 42
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# transforms = transforms.Compose([transforms.Resize((200, 200)), transforms.ToTensor()])
+
+# # Load your custom dataset
+# dataset = SolarObject(
+#     data_dir="data/processed_imgs/",
+#     json_path="data/image_polygons.json",
+#     transform=transforms,
+#     random_seed=seed,
+# )
+
+# for data in tqdm(dataset):
+#     continue
