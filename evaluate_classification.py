@@ -79,6 +79,8 @@ def CAM_map(model, dataloader, threshold, cam, cam_threshold, device, save_img=F
         "poly_dice": 0,
         "poly_prec": 0,
         "poly_rec": 0,
+        "correct": 0,
+        "incorrect": 0,
     }
     count = 0
     for idx, batch in enumerate(tqdm(dataloader)):
@@ -161,6 +163,11 @@ def CAM_map(model, dataloader, threshold, cam, cam_threshold, device, save_img=F
 
                     count += 1
 
+                    if poly_iou > 0:
+                        avg_dict["correct"] += 1
+                    else:
+                        avg_dict["incorrect"] += 1
+
                 if save_img:
                     image = images[i].cpu().detach().numpy()
 
@@ -237,23 +244,30 @@ model.eval()
 target_layer = model.layer4
 
 cam = GradCAM(model=model, target_layers=target_layer)
-threshold_num = 0.9
 
-print(f"Classification Threshold for this run is: {threshold_num}")
+class_threshold_list = [0.5, 0.7, 0.9]
+cam_threshold_list = [0.1, 0.3, 0.5, 0.7, 0.9]
 
-threshold = nn.Threshold(threshold_num, 0)
-cam_threshold = 0.5
+for class_threshold in class_threshold_list:
+    print(f"Classification Threshold for this run is: {class_threshold}")
 
-# evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
+    threshold = nn.Threshold(class_threshold, 0)
+    evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
 
-avg_dict = CAM_map(
-    model=model,
-    dataloader=test_loader,
-    threshold=threshold,
-    cam_threshold=cam_threshold,
-    cam=cam,
-    device=device,
-)
+    for cam_threshold in cam_threshold_list:
+        print(f"Camming with threshold {cam_threshold_list}")
+        avg_dict = CAM_map(
+            model=model,
+            dataloader=test_loader,
+            threshold=threshold,
+            cam_threshold=cam_threshold,
+            cam=cam,
+            device=device,
+        )
 
-with open("output/classification_avg_dict.json", "w", encoding="utf-8") as f:
-    json.dump(avg_dict, f, ensure_ascii=False, indent=4)
+        with open(
+            f"output/classification/class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
+            "w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(avg_dict, f, ensure_ascii=False, indent=4)

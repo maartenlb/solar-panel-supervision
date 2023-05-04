@@ -13,4 +13,4 @@ def calc_metrics(pred_mask, true_mask):
     precision = intersection / torch.sum(pred_mask)
     recall = intersection / torch.sum(true_mask)
 
-    return iou, dice, precision, recall
+    return iou.item(), dice.item(), precision.item(), recall.item()

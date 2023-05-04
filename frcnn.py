@@ -24,6 +24,7 @@ random.seed(seed)
 # Define the device to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 transforms = transforms.Compose([transforms.Resize((200, 200)), transforms.ToTensor()])
 
 # Load your custom dataset
