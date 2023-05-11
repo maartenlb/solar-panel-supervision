@@ -177,7 +177,7 @@ test_loader = DataLoader(
 model = torch.load("saved_models/frcnn/epoch_10.pt", map_location=device)
 
 model.to(device)
-threshold_list = [0.1, 0.3, 0.5, 0.7, 0.9]
+threshold_list = [0.001, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.999]
 for threshold in threshold_list:
     print(f"Running with Threshold: {threshold}")
 

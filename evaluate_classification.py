@@ -244,9 +244,11 @@ model.eval()
 target_layer = model.layer4
 
 cam = GradCAM(model=model, target_layers=target_layer)
+print("Using gradCAM!!!")
 
 class_threshold_list = [0.5, 0.7, 0.9]
-cam_threshold_list = [0.1, 0.3, 0.5, 0.7, 0.9]
+cam_threshold_list = [0.001, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.999]
+
 
 for class_threshold in class_threshold_list:
     print(f"Classification Threshold for this run is: {class_threshold}")
@@ -255,7 +257,7 @@ for class_threshold in class_threshold_list:
     evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
 
     for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold_list}")
+        print(f"Camming with threshold {cam_threshold}")
         avg_dict = CAM_map(
             model=model,
             dataloader=test_loader,
@@ -266,7 +268,7 @@ for class_threshold in class_threshold_list:
         )
 
         with open(
-            f"output/classification/class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
+            f"output/classification/gradcam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
             "w",
             encoding="utf-8",
         ) as f:

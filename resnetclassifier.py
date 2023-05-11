@@ -10,7 +10,6 @@ from torchvision.models import resnet50
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from dataset import SolarObject, collate_fn
-import numpy as np
 import random
 
 # Define the hyperparameters
