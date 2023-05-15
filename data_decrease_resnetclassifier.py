@@ -66,7 +66,7 @@ test_loader = DataLoader(
 # Define the model
 model = resnet50(weights=None)
 num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 1)  # Binary classification: background and solar panel
+model.fc = nn.Linear(num_ftrs, 1)  # 2 classes: background and solar panel
 model = model.to(device)
 
 
@@ -96,28 +96,40 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 # Train the model
 
 model.train()
-for epoch in range(num_epochs):
-    running_loss = 0.0
-    counter = 0
-    for data in tqdm(train_loader, 0):
-        inputs, annotations = data
-        inputs = inputs.to(device)
-        targets = []
-        for j in range(len(inputs)):
-            targets.append(annotations["solar_panel"][j])
-        targets = torch.as_tensor(targets, dtype=torch.float32).to(device)
-        optimizer.zero_grad()
 
-        # Forward pass
-        outputs = model(inputs).squeeze()
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
+data_usage = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
-        counter += 1
-        running_loss += loss.item()
-    print(f"Done with epoch: {epoch+1}, Loss is {running_loss/(batch_size * counter)}")
-    if (epoch + 1) % 5 == 0 or epoch + 1 == num_epochs:
-        print("Saving Model...")
-        torch.save(model, f"saved_models/classifier/epoch_{epoch+1}.pt")
-        print("Model Saved!")
+for data_chance in data_usage:
+    for epoch in range(num_epochs):
+        running_loss = 0.0
+        counter = 0
+        for data in tqdm(train_loader, 0):
+            number = random.random()
+            if number >= data_chance:
+                continue
+            inputs, annotations = data
+            inputs = inputs.to(device)
+            targets = []
+            for j in range(len(inputs)):
+                targets.append(annotations["solar_panel"][j])
+            targets = torch.as_tensor(targets, dtype=torch.float32).to(device)
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputs = model(inputs).squeeze()
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
+
+            counter += 1
+            running_loss += loss.item()
+        print(
+            f"Done with epoch: {epoch+1}, Loss is {running_loss/(batch_size * counter)}"
+        )
+        if (epoch + 1) % 5 == 0 or epoch + 1 == num_epochs:
+            print("Saving Model...")
+            torch.save(
+                model,
+                f"saved_models/data_decrease/classifier/epoch_{epoch+1}_data_usage{data_chance}.pt",
+            )
+            print("Model Saved!")

@@ -27,7 +27,7 @@ class BasicBlock(nn.Module):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
+        self.elu = nn.ELU()
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = downsample
@@ -38,7 +38,7 @@ class BasicBlock(nn.Module):
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        out = self.elu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
@@ -47,7 +47,7 @@ class BasicBlock(nn.Module):
             identity = self.downsample(x)
 
         out += identity
-        out = self.relu(out)
+        out = self.elu(out)
 
         return out
 
@@ -67,9 +67,9 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
+        self.elu = nn.ELU()
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
@@ -115,7 +115,7 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
+        x = self.elu(x)
         x = self.maxpool(x)
 
         x = self.layer1(x)
@@ -159,7 +159,7 @@ class DecoderBasicBlock(nn.Module):
             bias=False,
         )
         self.bn1 = nn.BatchNorm2d(planes)
-        self.relu = nn.ReLU(inplace=True)
+        self.elu = nn.ELU()
         self.conv2 = nn.ConvTranspose2d(
             planes, planes, kernel_size=3, stride=1, padding=1, bias=False
         )
@@ -172,7 +172,7 @@ class DecoderBasicBlock(nn.Module):
 
         out = self.conv1(x)
         out = self.bn1(out)
-        out = self.relu(out)
+        out = self.elu(out)
 
         if self.upsample is not None:
             identity = self.upsample(x)
@@ -181,7 +181,7 @@ class DecoderBasicBlock(nn.Module):
         out = self.bn2(out)
 
         out += identity
-        out = self.relu(out)
+        out = self.elu(out)
 
         return out
 
@@ -198,43 +198,66 @@ class Decoder(nn.Module):
         self.fc = nn.Linear(self.latent_dim, 512 * 7 * 7)
 
         # Residual layers
-        self.layer1 = self._make_layer(block, 256, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1])
-        self.layer3 = self._make_layer(block, 64, layers[2])
-        self.layer4 = self._make_layer(block, 64, layers[3])
+        # self.layer1 = self._make_layer(block, 512, layers[0])
+        # self.layer2 = self._make_layer(block, 512, layers[1])
+        # self.layer3 = self._make_layer(block, 512, layers[2])
+        # self.layer4 = self._make_layer(block, 512, layers[3])
 
         # Transposed convolutions to upsample
-        self.deconv1 = nn.ConvTranspose2d(
-            64 * block.expansion,
-            64 * block.expansion,
-            kernel_size=4,
-            stride=2,
-            padding=1,
-        )
-        self.bn1 = nn.BatchNorm2d(64 * block.expansion)
-        self.deconv2 = nn.ConvTranspose2d(
-            64 * block.expansion,
-            32 * block.expansion,
-            kernel_size=4,
-            stride=2,
-            padding=1,
-        )
-        self.bn2 = nn.BatchNorm2d(32 * block.expansion)
-        self.deconv3 = nn.ConvTranspose2d(
-            32 * block.expansion,
-            16 * block.expansion,
-            kernel_size=4,
-            stride=3,
-            padding=1,
-        )
-        self.bn3 = nn.BatchNorm2d(16 * block.expansion)
-        self.deconv4 = nn.ConvTranspose2d(
-            16 * block.expansion, 3, kernel_size=4, stride=3, padding=1
+        self.upsample = nn.Sequential(
+            nn.ConvTranspose2d(
+                512 * block.expansion,
+                256 * block.expansion,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.BatchNorm2d(256 * block.expansion),
+            nn.ELU(),
+            nn.ConvTranspose2d(
+                256 * block.expansion,
+                128 * block.expansion,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.BatchNorm2d(128 * block.expansion),
+            nn.ELU(),
+            nn.ConvTranspose2d(
+                128 * block.expansion,
+                64 * block.expansion,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.BatchNorm2d(64 * block.expansion),
+            nn.ELU(),
+            nn.ConvTranspose2d(
+                64 * block.expansion,
+                32 * block.expansion,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.BatchNorm2d(32 * block.expansion),
+            nn.ELU(),
+            nn.ConvTranspose2d(
+                32 * block.expansion,
+                32 * block.expansion,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+            ),
+            nn.BatchNorm2d(32 * block.expansion),
+            nn.ELU(),
+            nn.ConvTranspose2d(
+                32 * block.expansion, 3, kernel_size=3, stride=1, padding=1
+            ),
         )
 
         # Activation functions
-        self.relu = nn.ReLU(inplace=True)
-        self.sigmoid = nn.Sigmoid()
+        self.elu = nn.ELU()
+        self.tanh = nn.Tanh()
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -261,16 +284,13 @@ class Decoder(nn.Module):
     def forward(self, z):
         x = self.fc(z)
         x = x.view(-1, 512, 7, 7)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.relu(self.bn1(self.deconv1(x)))
-        x = self.relu(self.bn2(self.deconv2(x)))
-        x = self.relu(self.bn3(self.deconv3(x)))
-        x = self.deconv4(x)
-        x = F.interpolate(x, size=(200, 200), mode="bilinear", align_corners=False)
-        x = self.sigmoid(x)
+        # x = self.layer1(x)
+        # x = self.layer2(x)
+        # x = self.layer3(x)
+        # x = self.layer4(x)
+        x = self.upsample(x)
+        x = F.interpolate(x, size=(200, 200), mode="bilinear", align_corners=True)
+        x = self.tanh(x)
         return x
 
 
@@ -295,9 +315,9 @@ class VAE(nn.Module):
         self.latent_dim = latent_dim
 
     def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(std)
-        z = mu + eps * std
+        var = torch.exp(0.5 * logvar)
+        epsilon = torch.randn_like(var)  # Sampling epsilon
+        z = mu + var * epsilon  # Reparameterization trick
         return z
 
     def forward(self, x):

@@ -13,7 +13,7 @@ from sklearn.metrics import (
     f1_score,
     classification_report,
 )
-from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam import GradCAM, EigenCAM, EigenGradCAM, LayerCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import numpy as np
 import random
@@ -197,12 +197,12 @@ def CAM_map(model, dataloader, threshold, cam, cam_threshold, device, save_img=F
                     plt.axis("off")
                     if targets[i] == 1:
                         plt.savefig(
-                            f"output/cam/tp/solar_panel_{idx}_{i}.png",
+                            f"output/cam/layercam/tp/solar_panel_{idx}_{i}.png",
                             bbox_inches="tight",
                         )
                     if targets[i] == 0:
                         plt.savefig(
-                            f"output/cam/fp/solar_panel_{idx}_{i}.png",
+                            f"output/cam/layercam/fp/solar_panel_{idx}_{i}.png",
                             bbox_inches="tight",
                         )
                     plt.clf()
@@ -243,18 +243,28 @@ model.to(device)
 model.eval()
 target_layer = model.layer4
 
-cam = GradCAM(model=model, target_layers=target_layer)
-print("Using gradCAM!!!")
+cam = LayerCAM(model=model, target_layers=target_layer)
+print("Using gradCAM++!!!")
 
-class_threshold_list = [0.5, 0.7, 0.9]
+class_threshold_list = [0.9]
 cam_threshold_list = [0.001, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.999]
 
+
+avg_dict = CAM_map(
+    model=model,
+    dataloader=test_loader,
+    threshold=nn.Threshold(0.9, 0),
+    cam_threshold=0.8,
+    cam=cam,
+    device=device,
+    save_img=True,
+)
 
 for class_threshold in class_threshold_list:
     print(f"Classification Threshold for this run is: {class_threshold}")
 
     threshold = nn.Threshold(class_threshold, 0)
-    evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
+    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
 
     for cam_threshold in cam_threshold_list:
         print(f"Camming with threshold {cam_threshold}")
@@ -268,7 +278,7 @@ for class_threshold in class_threshold_list:
         )
 
         with open(
-            f"output/classification/gradcam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
+            f"output/classification/gradcamplusplus_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
             "w",
             encoding="utf-8",
         ) as f:

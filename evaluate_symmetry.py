@@ -7,16 +7,8 @@ from pprint import pprint
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from dataset import SolarObject, collate_fn
-from metrics import calc_metrics
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    precision_score,
-    recall_score,
-    f1_score,
-    classification_report,
-)
 import json
+import matplotlib.pyplot as plt
 
 
 def evaluate(
@@ -32,7 +24,8 @@ def evaluate(
     symmetry_counter = 0
     asymmetry_counter = 0
     count = 0
-    for images, annotations in tqdm(data_loader):
+    for idx, data in enumerate(tqdm(data_loader)):
+        images, annotations = data
         images = images.to(device)
         targets = []
         for i in range(len(images)):
@@ -56,7 +49,29 @@ def evaluate(
             class_pred_panel = True
 
         if object_pred_panel != class_pred_panel:
+            target_panel = False
+            if targets[0] == 1:
+                target_panel = True
             asymmetry_counter += 1
+            image = images[i].cpu().detach().numpy()
+
+            image = np.float32(image.squeeze().transpose((1, 2, 0)))
+            image = image[:, :, :3]
+
+            # Plot the blended image
+            plt.imshow(image)
+            plt.axis("off")
+            if target_panel == object_pred_panel:
+                plt.savefig(
+                    f"output/symmetry/object_right/solar_panel_{idx}_{target_panel}.png",
+                    bbox_inches="tight",
+                )
+            if target_panel == class_pred_panel:
+                plt.savefig(
+                    f"output/symmetry/classifier_right/solar_panel_{idx}_{target_panel}.png",
+                    bbox_inches="tight",
+                )
+            plt.clf()
         else:
             symmetry_counter += 1
 
@@ -69,7 +84,6 @@ seed = 42
 batch_size = 1
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
 
 dataset = SolarObject(
     data_dir="data/processed_imgs/",
