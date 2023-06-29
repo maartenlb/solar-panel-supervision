@@ -108,7 +108,7 @@ model_classifier = torch.load(
 
 model_object.to(device)
 model_classifier.to(device)
-object_threshold = 0.7
+object_threshold = 0.35
 clasify_threshold = 0.9
 print(
     f"Running with Object Threshold: {object_threshold} and Classification Threshold: {clasify_threshold}"

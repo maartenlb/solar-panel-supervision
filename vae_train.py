@@ -13,9 +13,10 @@ from tqdm import tqdm
 num_epochs = 10000
 seed = 42
 batch_size = 1
-lr = 0.0001
-latent_dim = 2048
-loss_factor = (200 * 200 * 3) / latent_dim  # Beta-VAE
+lr = 0.00001
+latent_dim = 8192
+loss_factor = 1
+# loss_factor = (200 * 200 * 3) / latent_dim  # Beta-VAE
 
 # Seed everything
 torch.manual_seed(seed)
@@ -86,9 +87,9 @@ recon_loss = torch.nn.MSELoss(reduction="mean")
 
 
 def vae_loss(x_hat, x, mu, logvar):
-    loss = loss_factor * recon_loss(x, x_hat)
-    kld = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return kld + loss
+    loss = recon_loss(x, x_hat)
+    kld = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    return kld + loss_factor * loss
 
 
 smallest_loss = 10**9
@@ -114,7 +115,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
 
     print(f"Done with epoch: {epoch+1}! Average train loss is {total_loss/count}")
-    if (epoch + 1) % 100 == 0 or epoch + 1 == num_epochs:
+    if (epoch + 1) % 1000 == 0 or epoch + 1 == num_epochs:
         print("Saving Model...")
         torch.save(model, f"saved_models/vae/epoch_{epoch+1}.pt")
         print("Model Saved!")

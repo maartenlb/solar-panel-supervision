@@ -63,12 +63,6 @@ test_loader = DataLoader(
     sampler=dataset.test_sampler(),
 )
 
-# Define the model
-model = resnet50(weights=None)
-num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 1)  # 2 classes: background and solar panel
-model = model.to(device)
-
 
 # Define the loss function and optimizer
 class WeightedBCELoss(nn.Module):
@@ -90,16 +84,21 @@ class WeightedBCELoss(nn.Module):
         return loss
 
 
-criterion = WeightedBCELoss(pos_weight=20)
-optimizer = optim.Adam(model.parameters(), lr=lr)
-
-# Train the model
-
-model.train()
-
-data_usage = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+data_usage = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 for data_chance in data_usage:
+    # Define the model
+    model = resnet50(weights=None)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, 1)  # 2 classes: background and solar panel
+    model = model.to(device)
+
+    # Train the model
+    model.train()
+
+    criterion = WeightedBCELoss(pos_weight=20)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+
     for epoch in range(num_epochs):
         running_loss = 0.0
         counter = 0
@@ -126,10 +125,10 @@ for data_chance in data_usage:
         print(
             f"Done with epoch: {epoch+1}, Loss is {running_loss/(batch_size * counter)}"
         )
-        if (epoch + 1) % 5 == 0 or epoch + 1 == num_epochs:
+        if epoch + 1 == num_epochs:
             print("Saving Model...")
             torch.save(
                 model,
-                f"saved_models/data_decrease/classifier/epoch_{epoch+1}_data_usage{data_chance}.pt",
+                f"data_decrease/classifier/epoch_{epoch+1}_data_usage{data_chance*100}.pt",
             )
             print("Model Saved!")

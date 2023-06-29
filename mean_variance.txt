@@ -1,0 +1,4 @@
+Mean and standard deviation of my Custom Dataset
+
+mean: [0.5051, 0.5083, 0.4524]
+std: [0.1720, 0.1332, 0.1220]

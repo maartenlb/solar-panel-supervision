@@ -177,15 +177,23 @@ test_loader = DataLoader(
 model = torch.load("saved_models/frcnn/epoch_10.pt", map_location=device)
 
 model.to(device)
-# threshold_list = [0.001, 0.1, 0.2, 0.3, 0.35, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.999]
-threshold_list = [0.35]
-for threshold in threshold_list:
-    print(f"Running with Threshold: {threshold}")
 
+data_usage = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+threshold = 0.35
+
+for data_chance in data_usage:
+    print(f"Using model with data usage of {data_chance}")
+    model = torch.load(
+        f"data_decrease/frcnn/epoch_3_data_usage_{data_chance*100}.pt",
+        map_location=device,
+    )
+    model.eval()
+    model.to(device)
     avg_dict = evaluate(model=model, data_loader=test_loader, threshold=threshold)
 
     with open(
-        f"output/object_detection/threshold_{threshold}_avg_dict.json",
+        f"data_decrease/localization/frcnn/threshold_data_{data_chance}_avg_dict.json",
         "w",
         encoding="utf-8",
     ) as f:

@@ -19,7 +19,6 @@ imgs_with_panels = set()
 imgs_with_panels2 = set()
 
 for polygon in polygon_dict["polygons"]:
-
     imgs_with_panels.add(polygon["image_name"])
     imgs_with_panels2.add(polygon["image_name"] + ".tif")
     # Check if the "image_name" key exists in the polygons variable.
@@ -76,7 +75,6 @@ def tile_image_and_poly(img, parsed_polygons, size, name, output_dir, image_poly
 
             if type(polygon[0]) == list:
                 for number in polygon:
-
                     new_x, new_y = number[0] - size * (i), number[1] - size * (j)
 
                     if (new_x <= size and new_x >= 0) and (
@@ -145,7 +143,6 @@ def tile_image_and_poly(img, parsed_polygons, size, name, output_dir, image_poly
 
 image_polygons = {}
 for imgs in tqdm(os.listdir(dir_imgs)):
-
     im = Image.open(dir_imgs + imgs)
     im = np.asarray(im)
     image_polygons = tile_image_and_poly(

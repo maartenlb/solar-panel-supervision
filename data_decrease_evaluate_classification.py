@@ -13,14 +13,7 @@ from sklearn.metrics import (
     f1_score,
     classification_report,
 )
-from pytorch_grad_cam import (
-    GradCAM,
-    EigenCAM,
-    EigenGradCAM,
-    GradCAMPlusPlus,
-    FullGrad,
-    HiResCAM,
-)
+from pytorch_grad_cam import GradCAM, EigenCAM, EigenGradCAM, LayerCAM, GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import numpy as np
 import random
@@ -117,7 +110,6 @@ def CAM_map(model, dataloader, threshold, cam, cam_threshold, device, save_img=F
                 if targets[i] == 1:
                     pred_mask = torch.from_numpy(cam_mask)
                     pred_mask = torch.where(pred_mask >= cam_threshold, 1, 0).int()
-
                     box_mask = torch.zeros((200, 200))
                     bboxes = annotations["boxes"][i].int()
                     for box in bboxes[1:]:
@@ -228,6 +220,7 @@ random.seed(seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 dataset = SolarObject(
     data_dir="data/processed_imgs/",
     json_path="data/image_polygons.json",
@@ -244,188 +237,45 @@ test_loader = DataLoader(
     sampler=dataset.test_sampler(),
 )
 
-model = torch.load("saved_models/classifier/resnet50/epoch_10.pt", map_location=device)
-
-model.to(device)
-model.eval()
-target_layer = model.layer4
 
 class_threshold_list = [0.9]
-cam_threshold_list = [
-    0.001,
-    0.05,
-    0.1,
-    0.2,
-    0.3,
-    0.4,
-    0.5,
-    0.6,
-    0.7,
-    0.8,
-    0.9,
-    0.95,
-    0.999,
-]
+cam_threshold_list = [0.001, 0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.999]
 
-cam = GradCAM(model=model, target_layers=target_layer)
-print("Using GradCAM!!!")
+data_usage = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
+for data_chance in data_usage:
+    print(f"Using model with data usage of {data_chance}")
+    model = torch.load(
+        f"data_decrease/classifier/epoch_10_data_usage{data_chance*100}.pt",
+        map_location=device,
+    )
+    model.eval()
+    model.to(device)
+    target_layer = model.layer4
+    cam = GradCAM(model=model, target_layers=target_layer)
+    print("Using gradCAM++!!!")
 
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
+    for class_threshold in class_threshold_list:
+        print(f"Classification Threshold for this run is: {class_threshold}")
+        threshold = nn.Threshold(class_threshold, 0)
+        evaluate(
+            model=model, dataloader=test_loader, threshold=threshold, device=device
         )
 
-        with open(
-            f"output/classification/gradcam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
+        for cam_threshold in cam_threshold_list:
+            print(f"Camming with threshold {cam_threshold}")
+            avg_dict = CAM_map(
+                model=model,
+                dataloader=test_loader,
+                threshold=threshold,
+                cam_threshold=cam_threshold,
+                cam=cam,
+                device=device,
+            )
 
-cam = GradCAMPlusPlus(model=model, target_layers=target_layer)
-print("Using GradCAM++!!!")
-
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
-
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
-        )
-
-        with open(
-            f"output/classification/gradcamplusplus_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
-
-cam = FullGrad(model=model, target_layers=target_layer)
-print("Using FullGrad!!")
-
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
-
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
-        )
-
-        with open(
-            f"output/classification/fullgrad_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
-
-cam = EigenCAM(model=model, target_layers=target_layer)
-print("Using EigenCAM!!!")
-
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
-
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
-        )
-
-        with open(
-            f"output/classification/eigencam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
-
-cam = EigenGradCAM(model=model, target_layers=target_layer)
-print("Using EigenGradCAM!!!")
-
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
-
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
-        )
-
-        with open(
-            f"output/classification/eigengradcam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
-
-
-cam = HiResCAM(model=model, target_layers=target_layer)
-print("Using HiResCAM!!!")
-
-for class_threshold in class_threshold_list:
-    print(f"Classification Threshold for this run is: {class_threshold}")
-
-    threshold = nn.Threshold(class_threshold, 0)
-    # evaluate(model=model, dataloader=test_loader, threshold=threshold, device=device)
-
-    for cam_threshold in cam_threshold_list:
-        print(f"Camming with threshold {cam_threshold}")
-        avg_dict = CAM_map(
-            model=model,
-            dataloader=test_loader,
-            threshold=threshold,
-            cam_threshold=cam_threshold,
-            cam=cam,
-            device=device,
-        )
-
-        with open(
-            f"output/classification/hirescam_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(avg_dict, f, ensure_ascii=False, indent=4)
+            with open(
+                f"data_decrease/classification/gradcamplusplus_class_{class_threshold}_cam_{cam_threshold}_avg_dict.json",
+                "w",
+                encoding="utf-8",
+            ) as f:
+                json.dump(avg_dict, f, ensure_ascii=False, indent=4)

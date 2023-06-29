@@ -6,7 +6,6 @@ import random
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from dataset import SolarObject, collate_fn
-from vae_model import VAE, Encoder, Decoder, DecoderBasicBlock, BasicBlock
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -78,6 +77,9 @@ def tensor_to_image(tensor):
     image = tensor.cpu().detach().numpy()
     image = np.float32(image.squeeze().transpose((1, 2, 0)))
     image = image[:, :, :3]
+
+    image += 1
+    image /= 2
 
     return image
 

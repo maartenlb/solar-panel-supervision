@@ -67,16 +67,30 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=5, stride=2, padding=3)
         self.bn1 = nn.BatchNorm2d(64)
         self.elu = nn.ELU()
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.fc_mu = nn.Linear(512 * 7 * 7, latent_dim)
-        self.fc_logvar = nn.Linear(512 * 7 * 7, latent_dim)
+        self.convolve = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ELU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ELU(),
+            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ELU(),
+        )
+
+        # self.layer1 = self._make_layer(block, 64, layers[0])
+        # self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        # self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        # self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.fc_mu1 = nn.Linear(512 * 7 * 7, 256 * 7 * 7)
+        self.fc_mu2 = nn.Linear(256 * 7 * 7, latent_dim)
+        self.fc_logvar1 = nn.Linear(512 * 7 * 7, 256 * 7 * 7)
+        self.fc_logvar2 = nn.Linear(256 * 7 * 7, latent_dim)
 
     def _make_layer(self, block, planes, blocks, stride=1):
         """
@@ -118,15 +132,19 @@ class Encoder(nn.Module):
         x = self.elu(x)
         x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x = self.convolve(x)
+
+        # x = self.layer1(x)
+        # x = self.layer2(x)
+        # x = self.layer3(x)
+        # x = self.layer4(x)
 
         x = x.view(x.size(0), -1)
 
-        mu = self.fc_mu(x)
-        logvar = self.fc_logvar(x)
+        mu = self.elu(self.fc_mu1(x))
+        mu = self.fc_mu2(mu)
+        logvar = self.elu(self.fc_logvar1(x))
+        logvar = self.fc_logvar2(logvar)
 
         return mu, logvar
 
@@ -195,7 +213,8 @@ class Decoder(nn.Module):
         self.layers = layers
 
         # First linear layer
-        self.fc = nn.Linear(self.latent_dim, 512 * 7 * 7)
+        self.fc1 = nn.Linear(self.latent_dim, 256 * 7 * 7)
+        self.fc2 = nn.Linear(256 * 7 * 7, 512 * 7 * 7)
 
         # Residual layers
         # self.layer1 = self._make_layer(block, 512, layers[0])
@@ -258,6 +277,7 @@ class Decoder(nn.Module):
         # Activation functions
         self.elu = nn.ELU()
         self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -282,7 +302,8 @@ class Decoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, z):
-        x = self.fc(z)
+        x = self.elu(self.fc1(z))
+        x = self.fc2(x)
         x = x.view(-1, 512, 7, 7)
         # x = self.layer1(x)
         # x = self.layer2(x)
@@ -291,6 +312,7 @@ class Decoder(nn.Module):
         x = self.upsample(x)
         x = F.interpolate(x, size=(200, 200), mode="bilinear", align_corners=True)
         x = self.tanh(x)
+        # x = self.sigmoid(x)
         return x
 
 

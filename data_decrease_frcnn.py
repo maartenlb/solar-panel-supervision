@@ -63,34 +63,36 @@ test_loader = DataLoader(
     collate_fn=collate_fn,
     sampler=dataset.test_sampler(),
 )
-# Define the Faster R-CNN model with a ResNet-50 backbone
-num_classes = 2  # number of object classes
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
-    num_classes=num_classes, trainable_backbone_layers=5
-)
 
-# in_features = model.roi_heads.box_predictor.cls_score.in_features
-# model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
-# Set the model to the device
-model.to(device)
-model.train()
-
-# Define the loss function and optimizer
-weight = torch.tensor([1.0, 20.0])
-cls_criterion = nn.CrossEntropyLoss(weight=weight.to(device))
-bbox_criterion = nn.SmoothL1Loss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-data_usage = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+data_usage = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 for data_chance in data_usage:
+    # Define the Faster R-CNN model with a ResNet-50 backbone
+    num_classes = 2  # number of object classes
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
+        num_classes=num_classes, trainable_backbone_layers=5
+    )
+
+    # in_features = model.roi_heads.box_predictor.cls_score.in_features
+    # model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+
+    # Set the model to the device
+    model.to(device)
+    model.train()
+
+    # Define the loss function and optimizer
+    weight = torch.tensor([1.0, 20.0])
+    cls_criterion = nn.CrossEntropyLoss(weight=weight.to(device))
+    bbox_criterion = nn.SmoothL1Loss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+
     # Train loop
     for epoch in range(num_epochs):
         print(f"Training Epoch: {epoch+1}!")
         counter = 0
         total_loss = 0
-        # Train for one epoch
+        # Train for one epochf (epoch + 1) % 5 == 0 or
         for images, annotations in tqdm(train_loader):
             number = random.random()
             if number >= data_chance:
@@ -123,10 +125,10 @@ for data_chance in data_usage:
         print(
             f"Epoch {epoch+1} Train Loss: {total_loss/(counter * batch_size)} Val Loss: {0}"
         )
-        if (epoch + 1) % 5 == 0 or epoch + 1 == num_epochs:
+        if epoch + 1 == num_epochs:
             print("Saving Model...")
             torch.save(
                 model,
-                f"saved_models/data_decrease/frcnn/epoch_{epoch+1}_data_usage_{data_chance}.pt",
+                f"data_decrease/frcnn/epoch_{epoch+1}_data_usage_{data_chance*100}.pt",
             )
             print("Model Saved!")
