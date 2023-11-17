@@ -8,8 +8,6 @@ from tqdm import tqdm
 
 dir_imgs = "data/images/"
 
-# Read JSON from
-# "/home/rob/projects/solar-panels-parsing/data/10sfg735670.geojson".
 with open("data/SolarArrayPolygons.json") as f:
     polygon_dict = json.load(f)
 
