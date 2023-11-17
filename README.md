@@ -7,7 +7,8 @@ This repository contains the complete codebase for exploring supervision for sol
 4. Code to train and evaluate variational autoencoder (default: custom architecture based on ResNet-50)
 
 The paper is available [here](https://arxiv.org/abs/2309.10421).
-The full thesis is available [here](https://scripties.uba.uva.nl/search?id=record_53567)
+
+The full thesis (extended report) is available [here](https://scripties.uba.uva.nl/search?id=record_53567)
 
 ## Abstract
 This study investigates object presence detection and localization in remote sensing imagery, focusing on solar panel recognition. We explore different levels of supervision, evaluating three models: a fully supervised object detector, a weakly supervised image classifier with CAM-based localization, and a minimally supervised anomaly detector. The classifier excels in binary presence detection (0.79 F1-score), while the object detector (0.72) offers precise localization. The anomaly detector requires more data for viable performance. Fusion of model results shows potential accuracy gains. CAM impacts localization modestly, with GradCAM, GradCAM++, and HiResCAM yielding superior results. Notably, the classifier remains robust with less data, in contrast to the object detector.
