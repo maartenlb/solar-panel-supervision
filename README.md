@@ -22,10 +22,13 @@ This study investigates object presence detection and localization in remote sen
 ![](imgs/solar_panel_vae_1.png) ![](imgs/solar_panel_vae_2.png)  ![](imgs/solar_panel_vae_3.png) 
 
 ## Pipeline Overview
-![Classification Pipeline](imgs/class_diagram)
+# Classification Pipeline
+![Classification Pipeline](imgs/class_diagram.png)
 
+# Object Detection Pipeline
 ![Object Detection Pipeline](imgs/object_diagram.png)
 
+# ariational Auto-Encoder Pipeline
 ![Variational Auto-Encoder Pipeline](imgs/variational_diagram.png)
 
 ## How to Use
