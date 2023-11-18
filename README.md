@@ -29,7 +29,7 @@ This study investigates object presence detection and localization in remote sen
 # Object Detection Pipeline
 ![Object Detection Pipeline](imgs/object_diagram.png)
 
-# ariational Auto-Encoder Pipeline
+# Variational Auto-Encoder Pipeline
 ![Variational Auto-Encoder Pipeline](imgs/variational_diagram.png)
 
 ## How to Use
